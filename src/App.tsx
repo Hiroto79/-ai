@@ -390,7 +390,8 @@ export default function App() {
     try {
       let finalContent = content;
 
-      // Auto-cleanup for old, heavy raw CSV markdown tables inside existing documents
+      // Detect if this session belongs to hand-throw/tee batting only
+      let isHandThrowOnly = false;
       const doc = documents.find(d => d.id === docId);
       const isCsvDoc = doc?.fileName.toLowerCase().endsWith('.csv') || 
                        docId === 'doc-pitching' || 
@@ -406,6 +407,14 @@ export default function App() {
           const playersData = hittingPlayers[docId];
           if (playersData && playersData.length > 0) {
             summaryContent = generateHittingSummaryMarkdown(playersData);
+            
+            // Check if all types belong to hand-throw/tee batting
+            isHandThrowOnly = playersData.every(player => 
+              player.rows.every(row => {
+                const typeLower = row.type.toLowerCase();
+                return typeLower.includes('手投げ') || typeLower.includes('置きt') || typeLower.includes('トス') || typeLower.includes('tee');
+              })
+            );
           }
         } else {
           const playersData = pitchingPlayers[docId];
@@ -431,8 +440,8 @@ export default function App() {
       }
 
       if (apiKey) {
-        // Run real analysis using Gemini API
-        const analyzed = await analyzeDocument(finalContent, apiKey);
+        // Run real analysis using Gemini API with hand-throw restriction flag
+        const analyzed = await analyzeDocument(finalContent, apiKey, isHandThrowOnly);
         setAnalysisSheets(prev => ({
           ...prev,
           [docId]: analyzed

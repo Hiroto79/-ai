@@ -6,7 +6,7 @@ let lastUsedApiKey: string | null = null;
 
 /**
  * Returns a prioritized list of supported Gemini model names for the API key.
- * Dynamically queries the API on first load and caches the result for 0ms subsequent access.
+ * Dynamically queries the API on first load and caches the result for subsequent access.
  */
 export async function getSupportedModelsOrdered(apiKey: string): Promise<string[]> {
   const defaultList = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
@@ -81,9 +81,14 @@ export async function getBestSupportedModel(apiKey: string): Promise<string> {
  * 
  * @param content Extracted document text
  * @param apiKey Gemini API Key
+ * @param isHandThrowOnly Whether this session contains hand-thrown batting data only
  * @returns Structured AnalysisSheetData
  */
-export async function analyzeDocument(content: string, apiKey: string): Promise<AnalysisSheetData> {
+export async function analyzeDocument(
+  content: string,
+  apiKey: string,
+  isHandThrowOnly: boolean = false
+): Promise<AnalysisSheetData> {
   const modelNames = await getSupportedModelsOrdered(apiKey);
   const genAI = new GoogleGenerativeAI(apiKey);
   
@@ -95,7 +100,7 @@ export async function analyzeDocument(content: string, apiKey: string): Promise<
 【重要な指示ルール（厳守）】
 1. 【でっち上げ（嘘）の完全禁止】：
    - 動画や映像が存在しないため、ボールの軌道に対するバッターのフォームや打ち方（例：腰が開いている、ひじが下がっているなど）、あるいは「インコースのボールに対する反応」「アウトコースのスイング遅れ」など、提示データに直接現れていないコース別・コース傾向の憶測による技術指導やハルシネーションは絶対に書かないでください。
-   - 測定形式が「手投げ/トス/置きT」などの手投げ測定（打撃データ）の場合、投手の球速や対戦投手、実戦形式のコース（インコース、アウトコース、高め、低めなど）に関する言及は絶対にしないでください。単にバットとボールの衝突データ（アジャスト率、バット速度、打球角度）のみに集中してください。
+   - ${isHandThrowOnly ? `※【超重要・絶対厳守】この測定セッションは「手投げ/置きT/トス」形式であるため、実戦のコース配球（内角、外角、インコース、アウトコース、高め、低め、コース別など）は存在せず、データも無意味です。分析結果のいかなる場所（総合評価、強み、改善点、練習メニュー、キー指標など全て）においても、「内角」「外角」「インコース」「アウトコース」「高め」「低め」という言葉および配球コース・高低に関する概念を「絶対」に使用しないでください。「内角高めに対する打撃」や「外角球に対する軌道」といった記述は厳禁です。単にバットとボールの物理的な衝突データ（アジャスト率、バット速度、打球角度、アタックアングル、飛距離）のみに集中してください。` : `測定形式が「手投げ/トス/置きT」などの手投げ測定（打撃データ）の場合、投手の球速や対戦投手、実戦形式のコース（インコース、アウトコース、高め、低めなど）に関する言及は絶対にしないでください。単にバットとボールの衝突データ（アジャスト率、バット速度、打球角度）のみに集中してください。`}
    - 前回セッションの比較用データが存在しない場合、あるいは比較データが提示されていない（またはすべて 0 や空欄など）場合は、勝手に前回との比較（「前回に比べて向上した」「前回の課題が改善された」など）を絶対にしないでください。現在のセッションの数値データのみに基づいた客観的フィードバックを行ってください。
 2. 分析シートに表示欄がないため、AI分析のすべての文章において「リリースポイント（リリース位置の高さ・左右）」に関する言及は一切行わないでください（CSVデータに含まれていても言及は不要です）。リリースに関する言及をする場合は、分析シート上にある「リリース発射角度（縦/横）」や、そこから派生するボールの変化軌道・変化量にのみ集中してください。
 3. 総合評価（summary）は、単に「クイックタイムがどう」といった特定の部分的数値に偏るのではなく、測定データ全体（球速帯、回転効率、球種ごとの変化量バランス、または長打を狙える打球速度・角度の再現性など）を多角的に網羅した、客観的かつ中身の濃い深く詳細な総括（3文程度）を記述してください。
@@ -156,6 +161,8 @@ ${content}
       const cleanHalucinations = (text: string): string => {
         if (!text) return "";
         let cleaned = text;
+        
+        // Always apply simple replacements
         const replacements = [
           { pattern: /内角高め/g, replacement: "芯で捉えた球" },
           { pattern: /内角低め/g, replacement: "芯で捉えた球" },
@@ -172,6 +179,15 @@ ${content}
           { pattern: /腰が開いている/g, replacement: "インパクトの瞬間に" },
           { pattern: /ひじが下がっている/g, replacement: "スイング軌道において" },
         ];
+        
+        if (isHandThrowOnly) {
+          replacements.push(
+            { pattern: /コース/g, replacement: "打球ゾーン" },
+            { pattern: /インサイド/g, replacement: "スイング軌道" },
+            { pattern: /アウトサイド/g, replacement: "スイング軌道" }
+          );
+        }
+
         for (const item of replacements) {
           cleaned = cleaned.replace(item.pattern, item.replacement);
         }
@@ -263,7 +279,7 @@ ${docContent}
         systemInstruction: `${systemPrompt}
     
 * あなたはユーザーが提供した「分析対象資料」のコンテキストを完全に把握しています。
-* ユーザーとの会話においては、必ずこの資料の記述や背景を考慮に入れつつ、あなたの設定されたペルソナ（口調、性格、役割）に従ってフィードバックを行ってください。
+* ユーザーとの会話においては、必ずこの資料의 記述や背景を考慮に入れつつ、あなたの設定されたペルソナ（口調、性格、役割）に従ってフィードバックを行ってください。
 * もし資料と無関係な日常会話を振られた場合でも、可能な限り資料の知見やその応用に関連付けた展開に引き込んでください。`
       });
 

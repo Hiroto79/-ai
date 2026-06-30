@@ -906,7 +906,7 @@ export function generateHittingSummaryMarkdown(players: HittingPlayer[]): string
     for (const row of player.rows) {
       md += `- **${row.type}**: 打球速度 ${row.exitVelocity}km/h, 打球角度 ${row.launchAngle}°, バット速度 ${row.batSpeed}km/h, アタックアングル ${row.attackAngle}°, コンタクト率 ${row.adjustRate}%, 飛距離 ${row.distance}m\n`;
     }
-    if (player.courses) {
+    if (player.courses && !isHandThrowOnly) {
       const c = player.courses;
       md += `#### コース別データ (打球速度 / 飛距離):\n`;
       md += `- 内角高め: ${c.inHigh.exitVelocity}km/h / ${c.inHigh.distance}m (パワー: ${c.inHigh.power})\n`;
