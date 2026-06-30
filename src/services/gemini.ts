@@ -1,10 +1,71 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { AnalysisSheetData } from '../mockData';
 
-export async function getSupportedModelsOrdered(_apiKey: string): Promise<string[]> {
-  // Directly return the static prioritized list to avoid API fetch delays (saving 1-5 seconds)
-  return ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+let cachedModels: string[] | null = null;
+let lastUsedApiKey: string | null = null;
+
+/**
+ * Returns a prioritized list of supported Gemini model names for the API key.
+ * Dynamically queries the API on first load and caches the result for 0ms subsequent access.
+ */
+export async function getSupportedModelsOrdered(apiKey: string): Promise<string[]> {
+  const defaultList = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  
+  if (cachedModels && lastUsedApiKey === apiKey) {
+    return cachedModels;
+  }
+  
+  lastUsedApiKey = apiKey;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      cachedModels = defaultList;
+      return defaultList;
+    }
+    
+    const data = await response.json();
+    if (data && Array.isArray(data.models)) {
+      const models = data.models;
+      const supportedModels = models
+        .filter((m: any) => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+        .map((m: any) => m.name.replace(/^models\//, ''));
+
+      console.log("Dynamically discovered supported models:", supportedModels);
+
+      const ordered: string[] = [];
+      const priorities = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+      for (const model of priorities) {
+        if (supportedModels.includes(model)) {
+          ordered.push(model);
+        }
+      }
+      
+      for (const model of supportedModels) {
+        if (!ordered.includes(model)) {
+          ordered.push(model);
+        }
+      }
+
+      if (ordered.length > 0) {
+        cachedModels = ordered;
+        return ordered;
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to fetch models dynamically, using fallback list:", error);
+  }
+  cachedModels = defaultList;
+  return defaultList;
 }
+
 
 /**
  * Verifies the Gemini API key and returns the best supported model name.
