@@ -13,7 +13,6 @@ import {
 import type { 
   DocumentItem, 
   AnalysisSheetData, 
-  CoachPersona, 
 } from './mockData';
 import { extractTextFromPdf } from './services/pdfParser';
 import { 
@@ -120,7 +119,7 @@ export default function App() {
 
   // Chat Histories key format: `${docId}-${personaId}`
   const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
-  const [activePersona, setActivePersona] = useState<CoachPersona>(MOCK_PERSONAS[0]);
+  const activePersona = MOCK_PERSONAS[0];
 
   // Loading States
   const [isProcessing, setIsProcessing] = useState(false);
@@ -791,7 +790,7 @@ export default function App() {
         // Demo Mode response
         await new Promise(resolve => setTimeout(resolve, 1500));
         
-        let reply = '';
+let reply = '';
         const lowercaseMsg = messageText.toLowerCase();
 
         const isVb = lowercaseMsg.includes('縦の変化') || lowercaseMsg.includes('縦変化') || lowercaseMsg.includes('ホップ') || lowercaseMsg.includes('vb');
@@ -801,56 +800,20 @@ export default function App() {
         const isAttack = lowercaseMsg.includes('進入角度') || lowercaseMsg.includes('アタックアングル') || lowercaseMsg.includes('アッパー');
 
         if (isVb) {
-          if (activePersona.id === 'headcoach') {
-            reply = `（デモモード解説）\n黒木だ。「縦の変化量（ホップ成分）」だな。これはボールが重力で自然に落ちる位置と比較して、どれだけ上向きに変化したかを示す物理的な数値だ。\nストレートの縦変化を高めるには、リリースで手首が寝ず、ボールの真後ろから指先で強く押し込んでバックスピン（回転効率）を高める必要がある。手首を立てて、ボールを「押し弾く」感覚を養うスロースロー調整をブルペンでやってみろ。`;
-          } else if (activePersona.id === 'mentor') {
-            reply = `（デモモード解説）\nエミリです！「縦の変化量」についてですね！\nこれはね、ボールがお辞儀（ドロップ）しないでキャッチャーミットまでピシッと届く「ノビの良さ」のことだよ！清水くんの数値がすごく高かったよね。\n縦変化を大きくするには、リリースの瞬間に人差し指と中指でボールの下をシュッと押し出すのがコツなんだ。指先でパチンと弾くキャッチボール練習から始めてみよう！`;
-          } else {
-            reply = `（デモモード解説）\n橘です。「縦の変化量（Vertical Break）」に関して説明します。\n物理的には「重力による自由落下軌道からの上方向への揚力（マグヌス効果）の差分」と定義されます。\nストレートでこの数値が40cmを超えると、打者は軌道の上を通過するように錯覚するため、高めでの空振り率（Whiff%）が有意に向上します。回転効率を上げることで最大化が可能です。`;
-          }
+          reply = "（デモモード回答）\nAI Technical Coachです。「縦の変化量（Vertical Break/ホップ成分）」について解説します。\n物理的には、ボールが重力によって自然に落下する軌道と比較して、空気抵抗（マグヌス効果による揚力）によってどれだけ上方向にホップしたかを示す数値です。\nストレートでこの数値が大きくプラスになると、打者は「ボールが浮き上がる」ように錯覚し、高めでの空振りを奪いやすくなります。リリースでのボールへの効率的な回転伝達が影響すると理論的に言われています。";
         } else if (isEff) {
-          if (activePersona.id === 'headcoach') {
-            reply = `（デモモード解説）\n黒木だ。「回転効率」だな。\nボールの総回転のうち、揚力（変化させる力）に変換されている割合だ。ここが低いとジャイロ回転（スライド・シュート成分）が多くなり、ストレートがシュートして垂れる原因になる。指がボールの側面に滑り落ちないよう、人差し指と中指の均等な圧力でリリースする感覚を掴む必要がある。`;
-          } else if (activePersona.id === 'mentor') {
-            reply = `（デモモード解説）\nエミリです！「回転効率」についてですね！\nこれは、ボールが風を受けて浮き上がるパワーを、どれだけ無駄なく（100%近く）使えているかという割合だよ！\nストレートで回転効率が低いと、ボールがシュート回転して垂れちゃうんだ。シャドースイングでリリース時に親指がしっかり下を向くイメージで投げると改善するよ！`;
-          } else {
-            reply = `（デモモード解説）\n橘です。「回転効率（Spin Efficiency）」を解説します。\n総回転数（Total Spin）に対する有効回転数（Active Spin）の比率です。これが低下（ジャイロ角度が増加）すると揚力成分が減衰し、ストレートが垂れる軌道にシフトします。リリースのジャイロ角度を0度（効率100%）に近づける技術アプローチが求められます。`;
-          }
+          reply = "（デモモード回答）\nAI Technical Coachです。「回転効率（スピンエフィシエンシー）」ですね。\nこれは総回転数のうち、ボールを変化させる力（揚力）に有効に働いているバックスピン/トップスピン等の比率です。\nストレートでは100%に近いほどホップ成分が最大化されますが、スライダーやカットボール等の変化球では、回転効率があえて低く（ジャイロ成分が多く）なることで、バッターの手元で鋭く曲がり落ちる独特な軌道が生まれます。「回転効率が低い＝悪い」ではなく、球種ごとの目的（空振りを取るのか、ゴロを打たせるのか）に合わせて数値をデザインすることが重要です。";
         } else if (isGyro) {
-          if (activePersona.id === 'headcoach') {
-            reply = `（デモモード解説）\n黒木だ。「ジャイロ角度」だな。\nボールの進行方向に対する回転軸のズレ（螺旋回転の度合い）だ。この角度が大きいとストレートはホップ力を失う。リリースで手首が外や内にねじれるとジャイロ角度が大きくなるぞ。プレートから捕手へ、まっすぐ一直線に指先を押し通すイメージで投げろ。`;
-          } else if (activePersona.id === 'mentor') {
-            reply = `（デモモード解説）\nエミリです！「ジャイロ角度」ですね！\nこれはボールが弾丸やコマのように、進行方向へ向かって回転するネジのような角度のことだよ！\nストレートではジャイロ角度が小さい方がホップするんだけど、カットボールを投げるときにはあえて大きくするんだよ。ストレートでジャイロを減らしたいときは、縫い目に指をしっかりかけて真っ直ぐ押す感覚を磨こう！`;
-          } else {
-            reply = `（デモモード解説）\n橘です。「ジャイロ角度（Gyro Angle）」を解説します。\nボールの進行方向ベクトルと回転軸ベクトルのなす角です。角度が90度に近づくと揚力はゼロになり、重力落下に近い軌道をとります。フォーシーム（ストレート）でのホップ成分最大化には、この角度を極限まで0度に抑えることが前提条件となります。`;
-          }
+          reply = "（デモモード回答）\nAI Technical Coachです。「ジャイロ角度」について解説します。\nボールの進行方向ベクトルと回転軸ベクトルのなす角度です。この角度が大きいほど（ジャイロ成分が多いほど）、揚力（ボールを浮き上がらせたり曲げたりする力）は小さくなります。\nストレートではジャイロ角度を0度に近づけることでノビが出ますが、カットボールやスライダー、フォーク等ではジャイロ角度があることで球速が維持され、打者の手元での鋭い変化（軌道のズレ）を生み出します。選手の狙いに応じて前向きに評価すべき指標です。";
         } else if (isAdjust) {
-          if (activePersona.id === 'headcoach') {
-            reply = `（デモモード解説）\n黒木だ。「アジャスト率」だな。\nボールの軌道にバットの軌道をいかに長く合致させ、芯で確実にミートできたかという割合だ。ここが低い者はバットが「点」で入っている。バットのスイング軌道をボールの軌道と合致させ、インパクトゾーンを「線」にするスイングプレーンの修正ドリルを行え。`;
-          } else if (activePersona.id === 'mentor') {
-            reply = `（デモモード解説）\nエミリです！「アジャスト率」についてですね！\nピッチャーの投げるボールの軌道に、どれだけバットの軌道を合わせて芯で打てたかという確率（％）のことだよ！有田くんの50%は本当に安定しているね！\nアジャスト率を高めるには、上から叩きすぎず、ボールの通り道にバットの面を長く合わせるようにレベルスイングを意識してみよう！`;
-          } else {
-            reply = `（デモモード解説）\n橘です。「アジャスト率（Adjust Rate）」を解説します。\nボールの入射角（一般に-6度前後）とバットのスイング進入角の『軌道の一致度』を示すミート効率指標です。コンタクト時の衝突効率（Smash Factor）の安定性に直接寄与します。改善にはスイング平面を投球軌道と同調させる調整が必要です。`;
-          }
+          reply = "（デモモード回答）\nAI Technical Coachです。「アジャスト率」について解説します。\nボールの進入軌道に対して、バットのスイングプレーン（面）がいかに長く合致したかを示す指標です。これが高ければ高いほど、インパクトのタイミングが多少ズレても芯で捉える確率が上がります。\nレベルスイングやスイング起動の安定が、このアジャスト率を向上させる要因として科学的論文でも言及されています。";
         } else if (isAttack) {
-          if (activePersona.id === 'headcoach') {
-            reply = `（デモモード解説）\n黒木だ。「進入角度（アタックアングル）」だな。\nインパクトの瞬間にバットがどれだけアッパー（またはダウン）で入ったかを示す角度だ。アッパー度が大きすぎるとボールの上を叩くゴロや、下を擦るポップフライが増えアジャスト率が下がる。自分の進入角度とボールの入射角が一致するよう、体の軸でスイングプレーンを管理しろ。`;
-          } else if (activePersona.id === 'mentor') {
-            reply = `（デモモード解説）\nエミリです！「進入角度（アタックアングル）」ですね！\nバットがボールに対して、どれくらいアッパー（上向き）に当たったかという角度だよ！高橋くんの16度は力強い長打を打つのに最適だけど、アジャスト率を上げるには少し平らに当てるイメージも大切だよ。\nボールの軌道を体全体でなぞるようにバットを振り出してみよう！`;
-          } else {
-            reply = `（デモモード解説）\n橘です。「進入角度（Attack Angle）」について解説します。\nボール衝突時のバット軌道の水平面に対する傾斜角です。投球軌道の入射角（平均-6度）に対し、アタックアングルが+6〜+12度付近で衝突すると、統計的に最も長打（バレルゾーン）になりやすい理想の打球角度が生まれやすくなります。スイング全体の起動位置調整が重要です。`;
-          }
+          reply = "（デモモード回答）\nAI Technical Coachです。「進入角度（アタックアングル）」ですね。\nボールのインパクト時の水平面に対するスイング角度です。一般的に投球の入射角（約-6度）に対し、アタックアングルが+6〜+12度の緩やかなアッパー軌道で衝突すると、打球速度と角度の組み合わせが「バレルゾーン」に入りやすく、長打の確率が統計的に最大化されます。打者それぞれのスイングスタイルと理想の打球特性に合わせて調整します。";
         } else {
-          if (activePersona.id === 'headcoach') {
-            reply = `（デモモード回答）\n黒木だ。「${messageText}」についてだが、現在のスイング軌道や投球時の指のかかり方を感覚だけで修正しようとしても無理がある。まずはRapsodoの具体的な数値（回転効率や打球速度）を見つめ直せ。リリースの指先の向き、あるいはバットの進入角度に意識を向けた練習ドリルから始めるぞ。\n\n※ Gemini API キーを設定すると、本物のAI監督があなたの質問に個別に技術フィードバックを行います。`;
-          } else if (activePersona.id === 'mentor') {
-            reply = `（デモモード回答）\nエミリです！「${messageText}」という疑問、すごく前向きで素晴らしいですね！今回の測定データでも、特定の球種や芯で捉えた打球にはプロ顔負けの素晴らしい数値が出ていましたよ。まずは楽しんで次のステップへ進みましょう！\n\n※ Gemini API キーを設定すると、本物のAIメンターが個別の強みを活かす育成プランを一緒に考案します。`;
-          } else {
-            reply = `（デモモード回答）\n橘です。ご質問の「${messageText}」について、データから読み解くアプローチは2つあります。1つ目は球速帯とスピン量の相関関係の最適化。2つ目は打球角度（バレルゾーン）へ入れる確率の向上です。具体的にどちらの指標を優先的に改善したいですか？\n\n※ Gemini API キーを設定すると、本物のAIアナリストが詳細なデータロードマップを整理します。`;
-          }
+          reply = `（デモモード回答）\nAI Technical Coachです。「${messageText}」についてのご質問ですね。\n映像データがないためフォームの直接的な指摘はできませんが、アップロードされた学術論文の知見と測定データのファクトを紐付け、データに基づいて客観的なメカニズムや次のステップを論理的・前向きにご提案いたします。具体的な球種や課題についてさらにお知らせください。\n\n※ Gemini API キーを設定すると、本物のAIデータコーチがあなたの質問に科学的かつ的確に個別フィードバックを行います。`;
         }
-
-        const aiMsg: ChatMessage = { role: 'model', content: reply };
+        
+                const aiMsg: ChatMessage = { role: 'model', content: reply };
         setChatHistories(prev => ({
           ...prev,
           [chatKey]: [...updatedHistory, aiMsg]
@@ -879,13 +842,7 @@ export default function App() {
     }
   };
 
-  // Persona switch helper
-  const handleChangePersona = (personaId: string) => {
-    const nextPersona = MOCK_PERSONAS.find(p => p.id === personaId);
-    if (nextPersona) {
-      setActivePersona(nextPersona);
-    }
-  };
+
 
   // Determine doc type consistently based on active document properties
   const isHitting = resolvedDocument
@@ -1324,7 +1281,6 @@ export default function App() {
               messages={currentMessages}
               onSendMessage={handleSendMessage}
               activePersona={activePersona}
-              onChangePersona={handleChangePersona}
               isResponding={isResponding}
               onClearChat={handleClearChat}
             />

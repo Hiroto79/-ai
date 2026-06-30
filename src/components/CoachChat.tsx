@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, MessageSquare, RefreshCw, Sparkles, User } from 'lucide-react';
-import { MOCK_PERSONAS } from '../mockData';
 import type { DocumentItem, CoachPersona } from '../mockData';
 import type { ChatMessage } from '../services/gemini';
 
@@ -9,7 +8,6 @@ interface CoachChatProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => Promise<void>;
   activePersona: CoachPersona;
-  onChangePersona: (personaId: string) => void;
   isResponding: boolean;
   onClearChat: () => void;
 }
@@ -19,7 +17,6 @@ export const CoachChat: React.FC<CoachChatProps> = ({
   messages,
   onSendMessage,
   activePersona,
-  onChangePersona,
   isResponding,
   onClearChat,
 }) => {
@@ -55,10 +52,10 @@ export const CoachChat: React.FC<CoachChatProps> = ({
   };
 
   const presetQuestions = [
-    "この資料の最も重要な結論は何ですか？",
-    "この知見を実務に活かす際、何から始めるべきですか？",
-    "この資料のロジックやデータに弱点はありますか？",
-    "関連する今後のトレンドや課題について教えてください。"
+    "測定データとアップロードした論文を比較し、科学的アドバイスをください。",
+    "論文の理論を現在の測定数値を持つ選手にどう適用できますか？",
+    "変化球の回転効率とジャイロ成分の活かし方について教えてください。",
+    "このデータが示す強みと課題を、論文の知見に基づいて提案してください。"
   ];
 
   return (
@@ -82,19 +79,6 @@ export const CoachChat: React.FC<CoachChatProps> = ({
             <RefreshCw size={14} />
             クリア
           </button>
-
-          {/* Selector */}
-          <select 
-            value={activePersona.id}
-            onChange={(e) => onChangePersona(e.target.value)}
-            className="persona-selector"
-          >
-            {MOCK_PERSONAS.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.avatar} {p.name} ({p.role.split(' ')[0]})
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
