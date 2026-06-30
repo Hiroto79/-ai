@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <!-- Background glow gradient -->
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#818cf8" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#818cf8" stop-opacity="0"/>
+    </radialGradient>
+    <!-- AI Line Gradient -->
+    <linearGradient id="ai-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="50%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Outer Glow -->
+  <circle cx="24" cy="24" r="22" fill="url(#glow)"/>
+  
+  <!-- Baseball Body -->
+  <circle cx="24" cy="24" r="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+  
+  <!-- Baseball Seams (Red) -->
+  <!-- Left Seam -->
+  <path d="M15.5 10 A16.5 16.5 0 0 0 15.5 38" fill="none" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="2,3"/>
+  <!-- Right Seam -->
+  <path d="M32.5 10 A16.5 16.5 0 0 1 32.5 38" fill="none" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="2,3"/>
+  
+  <!-- AI Analytics Trajectory Curve -->
+  <path d="M8 28 C 16 10, 32 10, 40 28" fill="none" stroke="url(#ai-gradient)" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Analytics Data Nodes -->
+  <circle cx="8" cy="28" r="3.5" fill="#4f46e5" stroke="#ffffff" stroke-width="1.5"/>
+  <circle cx="24" cy="14" r="3.5" fill="#818cf8" stroke="#ffffff" stroke-width="1.5"/>
+  <circle cx="40" cy="28" r="3.5" fill="#06b6d4" stroke="#ffffff" stroke-width="1.5"/>
+  
+  <!-- Tech sparkles / stars -->
+  <path d="M24 6 L25 8 L27 9 L25 10 L24 12 L23 10 L21 9 L23 8 Z" fill="#fbbf24"/>
+</svg>
