@@ -614,10 +614,16 @@ export default function App() {
       setPitchingPlayers(prev => ({ ...prev, ...newPitchingPlayers }));
       setSelectedPlayerNames(prev => ({ ...prev, ...newSelectedPlayerNames }));
       
-      // Select the first imported document as active and go to Individual view
-      const firstNewDoc = loadedDocs[0];
-      setActiveDocId(firstNewDoc.id);
-      setActiveView('individual');
+      // Select the first imported CSV document as active if any CSV was uploaded
+      const csvDoc = loadedDocs.find(doc => doc.fileName.toLowerCase().endsWith('.csv'));
+      if (csvDoc) {
+        setActiveDocId(csvDoc.id);
+        setActiveView('individual');
+      } else {
+        // If only PDFs or research text files were uploaded, do not clear or switch the current CSV analysis sheet.
+        // Instead, stay on files view to show success.
+        setActiveView('files');
+      }
 
       // Trigger analysis sequentially for all imported files
       for (const doc of loadedDocs) {
