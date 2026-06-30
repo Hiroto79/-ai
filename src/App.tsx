@@ -98,7 +98,7 @@ export default function App() {
 
   // State for API Key
   const [apiKey, setApiKey] = useState<string>(() => {
-    return localStorage.getItem(LOCAL_STORAGE_KEY) || '';
+    return localStorage.getItem(LOCAL_STORAGE_KEY) || import.meta.env.VITE_GEMINI_API_KEY || '';
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
