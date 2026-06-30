@@ -124,12 +124,19 @@ ${content}
           responseMimeType: "application/json",
           temperature: 0.2,
         }
-      }, {
-        timeout: 10000 // 10 seconds timeout to prevent delays
       });
       
-      const result = await model.generateContent(prompt);
-      const responseText = result.response.text();
+      // Promise race to enforce 12s timeout reliably
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`API request timed out after 12 seconds`)), 12000)
+      );
+
+      const generatePromise = (async () => {
+        const result = await model.generateContent(prompt);
+        return result.response.text();
+      })();
+
+      const responseText = await Promise.race([generatePromise, timeoutPromise]);
       
       // Parse the JSON output
       const rawData = JSON.parse(responseText.trim());
@@ -154,6 +161,12 @@ ${content}
         improvements: ensureString(rawData.improvements || rawData.improvement),
         trainingPlan: ensureString(rawData.trainingPlan || rawData.training_plan || rawData.plan)
       };
+
+      // Validation: If major contents are empty, treat as generation failure to fall back to next model
+      if (!parsedData.summary.trim() && !parsedData.keyMetrics.trim() && !parsedData.mechanics.trim()) {
+        throw new Error("AI returned empty or invalid analysis structure (missing major keys).");
+      }
+
       return parsedData;
     } catch (error: any) {
       console.warn(`Gemini model ${modelName} analysis failed. Trying next model. Error:`, error);
@@ -219,7 +232,6 @@ ${docContent}
 
   for (const modelName of modelNames) {
     try {
-      console.log(`Chatting with coach using Gemini model: ${modelName}`);
       const model = genAI.getGenerativeModel({
         model: modelName,
         systemInstruction: `${systemPrompt}
@@ -227,8 +239,6 @@ ${docContent}
 * あなたはユーザーが提供した「分析対象資料」のコンテキストを完全に把握しています。
 * ユーザーとの会話においては、必ずこの資料の記述や背景を考慮に入れつつ、あなたの設定されたペルソナ（口調、性格、役割）に従ってフィードバックを行ってください。
 * もし資料と無関係な日常会話を振られた場合でも、可能な限り資料の知見やその応用に関連付けた展開に引き込んでください。`
-      }, {
-        timeout: 20000 // 20 seconds timeout to prevent infinite hang
       });
 
       const chat = model.startChat({
@@ -238,8 +248,17 @@ ${docContent}
         }
       });
 
-      const result = await chat.sendMessage(userMessage);
-      return result.response.text();
+      // Promise race to enforce 20s timeout reliably
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Chat request timed out after 20 seconds`)), 20000)
+      );
+
+      const sendPromise = (async () => {
+        const result = await chat.sendMessage(userMessage);
+        return result.response.text();
+      })();
+
+      return await Promise.race([sendPromise, timeoutPromise]);
     } catch (error: any) {
       console.warn(`Gemini model ${modelName} chat failed. Trying next model. Error:`, error);
       lastError = error;
