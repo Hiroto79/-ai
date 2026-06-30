@@ -126,6 +126,8 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isResponding, setIsResponding] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<number | null>(null);
+  const [showAnalysisCompletedToast, setShowAnalysisCompletedToast] = useState(false);
   const [isUploadingCsv, setIsUploadingCsv] = useState(false);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
 
@@ -373,6 +375,18 @@ export default function App() {
   // Trigger analysis for a document
   const runAnalysis = async (docId: string, content: string) => {
     setIsAnalyzing(true);
+    setAnalysisProgress(0);
+
+    // Smooth pseudo-progress incrementer for the AI analysis stage
+    let currentProgress = 0;
+    const progressInterval = setInterval(() => {
+      if (currentProgress < 95) {
+        const step = Math.max(1, Math.round((95 - currentProgress) * 0.15));
+        currentProgress += step;
+        setAnalysisProgress(currentProgress);
+      }
+    }, 250);
+
     try {
       let finalContent = content;
 
@@ -447,7 +461,19 @@ export default function App() {
           await saveAnalysisSheet(docId, mockResponse).catch(err => console.error("Error saving analysis sheet:", err));
         }
       }
+
+      // Success completion
+      clearInterval(progressInterval);
+      setAnalysisProgress(100);
+      setShowAnalysisCompletedToast(true);
+      setTimeout(() => {
+        setAnalysisProgress(null);
+        setShowAnalysisCompletedToast(false);
+      }, 2000);
+
     } catch (error: any) {
+      clearInterval(progressInterval);
+      setAnalysisProgress(null);
       alert(error.message || "解析中にエラーが発生しました。");
     } finally {
       setIsAnalyzing(false);
@@ -1218,6 +1244,7 @@ let reply = '';
                 }
               }}
               isAnalyzing={isAnalyzing}
+              analysisProgress={analysisProgress}
               onReanalyze={handleReanalyze}
               isHitting={isHitting}
               players={activePlayersList}
@@ -1253,6 +1280,7 @@ let reply = '';
                 }
               }}
               isAnalyzing={isAnalyzing}
+              analysisProgress={analysisProgress}
               onReanalyze={handleReanalyze}
               isHitting={isHitting}
               players={activePlayersList}
@@ -1324,6 +1352,88 @@ let reply = '';
         savedApiKey={apiKey}
         onSave={handleSaveApiKey}
       />
+
+      {/* Background Analysis Progress Floating Indicator & Completed Toast */}
+      {analysisProgress !== null && (
+        <div className="floating-progress-container glass-panel" style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 9999,
+          padding: '16px 20px',
+          borderRadius: '12px',
+          width: '320px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(12px)',
+          background: 'rgba(15, 23, 42, 0.85)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          animation: 'slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="spinner pulse-glow" style={{ width: '18px', height: '18px', borderWidth: '2px', borderColor: '#3b82f6 transparent #3b82f6 transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>
+                AIコーチがバックグラウンドで分析中...
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+                他の画面を操作していても処理は継続されます
+              </div>
+            </div>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#3b82f6' }}>{analysisProgress}%</span>
+          </div>
+          <div style={{ width: '100%', height: '4px', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{
+              width: `${analysisProgress}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+              borderRadius: '2px',
+              transition: 'width 0.25s ease-out'
+            }}></div>
+          </div>
+        </div>
+      )}
+
+      {showAnalysisCompletedToast && (
+        <div className="completed-toast-container glass-panel" style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 9999,
+          padding: '14px 20px',
+          borderRadius: '12px',
+          boxShadow: '0 8px 32px rgba(16, 185, 129, 0.2)',
+          border: '1px solid rgba(16, 185, 129, 0.3)',
+          backdropFilter: 'blur(12px)',
+          background: 'rgba(6, 78, 59, 0.9)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          color: '#ecfdf5',
+          animation: 'slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}>
+          <div style={{
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            backgroundColor: '#10b981',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontSize: '0.75rem',
+            fontWeight: 'bold'
+          }}>✓</div>
+          <div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>AI分析が完了しました！</div>
+            <div style={{ fontSize: '0.75rem', color: 'rgba(236,253,245,0.7)', marginTop: '1px' }}>
+              「チーム全体 AIコーチ分析」から結果を確認できます
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -29,6 +29,7 @@ interface AnalysisSheetProps {
   onSelectCompareDoc?: (docId: string) => void;
   compareHittingPlayerData?: HittingPlayer | null;
   comparePitchingPlayerData?: PitchingPlayer | null;
+  analysisProgress?: number | null;
 }
 
 type TabType = 'individual' | 'sheet' | 'original';
@@ -693,6 +694,7 @@ export const AnalysisSheet: React.FC<AnalysisSheetProps> = ({
   onSelectCompareDoc,
   compareHittingPlayerData,
   comparePitchingPlayerData,
+  analysisProgress
 }) => {
   const [localActiveTab, setLocalActiveTab] = useState<TabType>('individual');
   const activeTab = forceView ? (forceView === 'team' ? 'sheet' : 'individual') : localActiveTab;
@@ -1949,11 +1951,25 @@ ${sheetData.trainingPlan}
   
   const renderAiAnalysisSheet = () => {
     if (isAnalyzing) {
+      const displayProgress = typeof analysisProgress === 'number' ? analysisProgress : 0;
       return (
-        <div className="loading-state" style={{ padding: '40px 0' }}>
-          <div className="spinner pulse-glow" style={{ width: '40px', height: '40px', borderWidth: '3px' }}></div>
-          <h4>AIがRapsodoデータを分析中...</h4>
-          <p>チームの指標、バイオメカニクス的課題を算出しています。</p>
+        <div className="loading-state animate-fade-in" style={{ padding: '60px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="spinner pulse-glow" style={{ width: '50px', height: '50px', borderWidth: '3px', marginBottom: '20px' }}></div>
+          <h4 style={{ marginBottom: '8px', fontSize: '1.15rem', fontWeight: 600 }}>
+            AIがRapsodoデータを分析中... {displayProgress}%
+          </h4>
+          <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.85rem', marginBottom: '20px' }}>
+            チームの指標、バイオメカニクス的課題を算出しています。
+          </p>
+          <div style={{ width: '100%', maxWidth: '280px', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ 
+              width: `${displayProgress}%`, 
+              height: '100%', 
+              background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)', 
+              borderRadius: '3px',
+              transition: 'width 0.25s ease-out'
+            }}></div>
+          </div>
         </div>
       );
     }
