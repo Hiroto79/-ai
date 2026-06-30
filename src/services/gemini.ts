@@ -40,16 +40,17 @@ export async function getSupportedModelsOrdered(apiKey: string): Promise<string[
 
       console.log("Dynamically discovered supported models:", supportedModels);
 
+      // Only allow stable text generation models to avoid preview/experimental errors
+      const allowedModels = [
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+        'gemini-1.5-flash-8b',
+        'gemini-1.5-pro'
+      ];
+
       const ordered: string[] = [];
-      const priorities = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
-      for (const model of priorities) {
+      for (const model of allowedModels) {
         if (supportedModels.includes(model)) {
-          ordered.push(model);
-        }
-      }
-      
-      for (const model of supportedModels) {
-        if (!ordered.includes(model)) {
           ordered.push(model);
         }
       }
