@@ -341,8 +341,28 @@ export default function App() {
   };
 
   // Get active document details
+  // For analysis views (individual / team), force fallback to a CSV if activeDocId points to a PDF
+  const resolvedDocId = (() => {
+    if (activeView === 'individual' || activeView === 'team') {
+      if (!activeDocId) return 'doc-pitching';
+      const doc = documents.find(d => d.id === activeDocId);
+      const isCsv = doc?.fileName.toLowerCase().endsWith('.csv') || activeDocId === 'doc-pitching' || activeDocId === 'doc-batting';
+      if (isCsv) return activeDocId;
+      
+      // Find the first available CSV document as fallback
+      const firstCsv = documents.find(d => 
+        d.fileName.toLowerCase().endsWith('.csv') || 
+        d.id === 'doc-pitching' || 
+        d.id === 'doc-batting'
+      );
+      return firstCsv ? firstCsv.id : 'doc-pitching';
+    }
+    return activeDocId;
+  })();
+
+  const resolvedDocument = documents.find(doc => doc.id === resolvedDocId) || null;
   const activeDocument = documents.find(doc => doc.id === activeDocId) || null;
-  const activeSheetData = activeDocId ? (analysisSheets[activeDocId] || null) : null;
+  const activeSheetData = resolvedDocId ? (analysisSheets[resolvedDocId] || null) : null;
   
   // Get active chat log
   const chatKey = activeDocId ? `${activeDocId}-${activePersona.id}` : '';
@@ -842,35 +862,35 @@ export default function App() {
   };
 
   // Determine doc type consistently based on active document properties
-  const isHitting = activeDocument
-    ? (activeDocument.id.includes('hitting') || 
-       activeDocument.title.includes('打撃') || 
-       activeDocument.id.includes('batting') || 
-       activeDocument.fileName.toLowerCase().includes('hitting') ||
-       activeDocument.fileName.toLowerCase().includes('batting'))
+  const isHitting = resolvedDocument
+    ? (resolvedDocument.id.includes('hitting') || 
+       resolvedDocument.title.includes('打撃') || 
+       resolvedDocument.id.includes('batting') || 
+       resolvedDocument.fileName.toLowerCase().includes('hitting') ||
+       resolvedDocument.fileName.toLowerCase().includes('batting'))
     : false;
 
   // Handlers for individual players selection
-  const activePlayersList = activeDocId 
+  const activePlayersList = resolvedDocId 
     ? (isHitting
-      ? (hittingPlayers[activeDocId] || []).map((p: HittingPlayer) => p.name)
-      : (pitchingPlayers[activeDocId] || []).map((p: PitchingPlayer) => p.name)
+      ? (hittingPlayers[resolvedDocId] || []).map((p: HittingPlayer) => p.name)
+      : (pitchingPlayers[resolvedDocId] || []).map((p: PitchingPlayer) => p.name)
       )
     : [];
 
-  const currentSelectedPlayer = activeDocId ? (selectedPlayerNames[activeDocId] || '') : '';
+  const currentSelectedPlayer = resolvedDocId ? (selectedPlayerNames[resolvedDocId] || '') : '';
 
-  const activeHittingPlayerData = (isHitting && activeDocId)
-    ? (hittingPlayers[activeDocId] || []).find((p: HittingPlayer) => p.name === currentSelectedPlayer) || null
+  const activeHittingPlayerData = (isHitting && resolvedDocId)
+    ? (hittingPlayers[resolvedDocId] || []).find((p: HittingPlayer) => p.name === currentSelectedPlayer) || null
     : null;
 
-  const activePitchingPlayerData = (!isHitting && activeDocId)
-    ? (pitchingPlayers[activeDocId] || []).find((p: PitchingPlayer) => p.name === currentSelectedPlayer) || null
+  const activePitchingPlayerData = (!isHitting && resolvedDocId)
+    ? (pitchingPlayers[resolvedDocId] || []).find((p: PitchingPlayer) => p.name === currentSelectedPlayer) || null
     : null;
 
   // Active Team Name
-  const activeTeamName = activeDocument ? getTeamNameFromFileName(activeDocument.fileName) : '';
-  const activeCompareDocId = activeDocId ? (compareDocIds[activeDocId] || '') : '';
+  const activeTeamName = resolvedDocument ? getTeamNameFromFileName(resolvedDocument.fileName) : '';
+  const activeCompareDocId = resolvedDocId ? (compareDocIds[resolvedDocId] || '') : '';
 
   // Get other documents of the SAME team and SAME type that contain the SELECTED player
   const compareDocCandidates = documents.filter(doc => {
@@ -1204,13 +1224,13 @@ export default function App() {
         {activeView === 'individual' && (
           <div className="pdf-sheet-centered-wrapper">
             <AnalysisSheet
-              document={activeDocument}
+              document={resolvedDocument}
               sheetData={activeSheetData}
               onSaveSheet={(updatedData) => {
-                if (activeDocId) {
-                  setAnalysisSheets(prev => ({ ...prev, [activeDocId]: updatedData }));
+                if (resolvedDocId) {
+                  setAnalysisSheets(prev => ({ ...prev, [resolvedDocId]: updatedData }));
                   if (isSupabaseConfigured) {
-                    saveAnalysisSheet(activeDocId, updatedData).catch(err => console.error("Error saving analysis sheet:", err));
+                    saveAnalysisSheet(resolvedDocId, updatedData).catch(err => console.error("Error saving analysis sheet:", err));
                   }
                 }
               }}
@@ -1223,8 +1243,8 @@ export default function App() {
               hittingPlayerData={activeHittingPlayerData}
               pitchingPlayerData={activePitchingPlayerData}
               onSavePlayerStats={handleSavePlayerStats}
-              allPitchingPlayers={activeDocId ? pitchingPlayers[activeDocId] : []}
-              allHittingPlayers={activeDocId ? hittingPlayers[activeDocId] : []}
+              allPitchingPlayers={resolvedDocId ? pitchingPlayers[resolvedDocId] : []}
+              allHittingPlayers={resolvedDocId ? hittingPlayers[resolvedDocId] : []}
               forceView="individual"
               compareDocId={activeCompareDocId}
               compareDocCandidates={compareDocCandidates}
@@ -1239,13 +1259,13 @@ export default function App() {
         {activeView === 'team' && (
           <div className="team-sheet-centered-wrapper">
             <AnalysisSheet
-              document={activeDocument}
+              document={resolvedDocument}
               sheetData={activeSheetData}
               onSaveSheet={(updatedData) => {
-                if (activeDocId) {
-                  setAnalysisSheets(prev => ({ ...prev, [activeDocId]: updatedData }));
+                if (resolvedDocId) {
+                  setAnalysisSheets(prev => ({ ...prev, [resolvedDocId]: updatedData }));
                   if (isSupabaseConfigured) {
-                    saveAnalysisSheet(activeDocId, updatedData).catch(err => console.error("Error saving analysis sheet:", err));
+                    saveAnalysisSheet(resolvedDocId, updatedData).catch(err => console.error("Error saving analysis sheet:", err));
                   }
                 }
               }}
@@ -1258,8 +1278,8 @@ export default function App() {
               hittingPlayerData={activeHittingPlayerData}
               pitchingPlayerData={activePitchingPlayerData}
               onSavePlayerStats={handleSavePlayerStats}
-              allPitchingPlayers={activeDocId ? pitchingPlayers[activeDocId] : []}
-              allHittingPlayers={activeDocId ? hittingPlayers[activeDocId] : []}
+              allPitchingPlayers={resolvedDocId ? pitchingPlayers[resolvedDocId] : []}
+              allHittingPlayers={resolvedDocId ? hittingPlayers[resolvedDocId] : []}
               forceView="team"
               compareDocId={activeCompareDocId}
               compareDocCandidates={compareDocCandidates}
