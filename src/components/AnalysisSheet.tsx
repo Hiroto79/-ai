@@ -763,6 +763,31 @@ export const AnalysisSheet: React.FC<AnalysisSheetProps> = ({
     }
   }, [isPrintingBulk]);
 
+  const cleanHalucinations = (text: string): string => {
+    if (!text) return "";
+    let cleaned = text;
+    const replacements = [
+      { pattern: /内角高め/g, replacement: "芯で捉えた球" },
+      { pattern: /内角低め/g, replacement: "芯で捉えた球" },
+      { pattern: /外角高め/g, replacement: "芯で捉えた球" },
+      { pattern: /外角低め/g, replacement: "芯で捉えた球" },
+      { pattern: /内角球/g, replacement: "ミートできた球" },
+      { pattern: /外角球/g, replacement: "ミートできた球" },
+      { pattern: /インコース/g, replacement: "スイング軌道上のコース" },
+      { pattern: /アウトコース/g, replacement: "スイング軌道上のコース" },
+      { pattern: /内角/g, replacement: "捉えたボール" },
+      { pattern: /外角/g, replacement: "アジャストしたボール" },
+      { pattern: /インサイドアウト/g, replacement: "滑らかなスイング軌道" },
+      { pattern: /コース別/g, replacement: "打球別" },
+      { pattern: /腰が開いている/g, replacement: "インパクトの瞬間に" },
+      { pattern: /ひじが下がっている/g, replacement: "スイング軌道において" },
+    ];
+    for (const item of replacements) {
+      cleaned = cleaned.replace(item.pattern, item.replacement);
+    }
+    return cleaned;
+  };
+
   const [customPitchingTitle, setCustomPitchingTitle] = useState(() => {
     return localStorage.getItem('customPitchingTitle') || 'ストレート一覧（年：打者なし）';
   });
@@ -789,7 +814,14 @@ export const AnalysisSheet: React.FC<AnalysisSheetProps> = ({
   // Sync edited data when sheetData changes
   useEffect(() => {
     if (sheetData) {
-      setEditedSheetData({ ...sheetData });
+      setEditedSheetData({
+        summary: cleanHalucinations(sheetData.summary),
+        keyMetrics: cleanHalucinations(sheetData.keyMetrics),
+        mechanics: cleanHalucinations(sheetData.mechanics),
+        strengths: cleanHalucinations(sheetData.strengths),
+        improvements: cleanHalucinations(sheetData.improvements),
+        trainingPlan: cleanHalucinations(sheetData.trainingPlan)
+      });
     }
     if (allPitchingPlayersRaw && allPitchingPlayersRaw.length > 0 && pitcherOrderList.length === 0) {
       setPitcherOrderList(allPitchingPlayersRaw.map(p => p.name));
@@ -1999,7 +2031,7 @@ ${sheetData.trainingPlan}
               rows={3}
             />
           ) : (
-            <p className="section-content highlight">{sheetData.summary}</p>
+            <p className="section-content highlight">{cleanHalucinations(sheetData.summary)}</p>
           )}
         </div>
 
@@ -2012,7 +2044,7 @@ ${sheetData.trainingPlan}
               rows={6}
             />
           ) : (
-            <p className="section-content" style={{ whiteSpace: 'pre-wrap' }}>{sheetData.keyMetrics}</p>
+            <p className="section-content" style={{ whiteSpace: 'pre-wrap' }}>{cleanHalucinations(sheetData.keyMetrics)}</p>
           )}
         </div>
 
@@ -2025,7 +2057,7 @@ ${sheetData.trainingPlan}
               rows={6}
             />
           ) : (
-            <p className="section-content">{sheetData.mechanics}</p>
+            <p className="section-content">{cleanHalucinations(sheetData.mechanics)}</p>
           )}
         </div>
 
@@ -2038,7 +2070,7 @@ ${sheetData.trainingPlan}
               rows={6}
             />
           ) : (
-            <p className="section-content">{sheetData.strengths}</p>
+            <p className="section-content">{cleanHalucinations(sheetData.strengths)}</p>
           )}
         </div>
 
@@ -2051,7 +2083,7 @@ ${sheetData.trainingPlan}
               rows={6}
             />
           ) : (
-            <p className="section-content">{sheetData.improvements}</p>
+            <p className="section-content">{cleanHalucinations(sheetData.improvements)}</p>
           )}
         </div>
 

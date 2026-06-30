@@ -152,14 +152,40 @@ ${content}
         return String(val);
       };
 
+      // Clean course-related hallucinations from text
+      const cleanHalucinations = (text: string): string => {
+        if (!text) return "";
+        let cleaned = text;
+        const replacements = [
+          { pattern: /内角高め/g, replacement: "芯で捉えた球" },
+          { pattern: /内角低め/g, replacement: "芯で捉えた球" },
+          { pattern: /外角高め/g, replacement: "芯で捉えた球" },
+          { pattern: /外角低め/g, replacement: "芯で捉えた球" },
+          { pattern: /内角球/g, replacement: "ミートできた球" },
+          { pattern: /外角球/g, replacement: "ミートできた球" },
+          { pattern: /インコース/g, replacement: "スイング軌道上のコース" },
+          { pattern: /アウトコース/g, replacement: "スイング軌道上のコース" },
+          { pattern: /内角/g, replacement: "捉えたボール" },
+          { pattern: /外角/g, replacement: "アジャストしたボール" },
+          { pattern: /インサイドアウト/g, replacement: "滑らかなスイング軌道" },
+          { pattern: /コース別/g, replacement: "打球別" },
+          { pattern: /腰が開いている/g, replacement: "インパクトの瞬間に" },
+          { pattern: /ひじが下がっている/g, replacement: "スイング軌道において" },
+        ];
+        for (const item of replacements) {
+          cleaned = cleaned.replace(item.pattern, item.replacement);
+        }
+        return cleaned;
+      };
+
       // Normalize snake_case keys from AI to camelCase expected by the app
       const parsedData: AnalysisSheetData = {
-        summary: ensureString(rawData.summary || rawData.summary_text),
-        keyMetrics: ensureString(rawData.keyMetrics || rawData.key_metrics || rawData.metrics),
-        mechanics: ensureString(rawData.mechanics || rawData.mechanics_analysis),
-        strengths: ensureString(rawData.strengths || rawData.strength),
-        improvements: ensureString(rawData.improvements || rawData.improvement),
-        trainingPlan: ensureString(rawData.trainingPlan || rawData.training_plan || rawData.plan)
+        summary: cleanHalucinations(ensureString(rawData.summary || rawData.summary_text)),
+        keyMetrics: cleanHalucinations(ensureString(rawData.keyMetrics || rawData.key_metrics || rawData.metrics)),
+        mechanics: cleanHalucinations(ensureString(rawData.mechanics || rawData.mechanics_analysis)),
+        strengths: cleanHalucinations(ensureString(rawData.strengths || rawData.strength)),
+        improvements: cleanHalucinations(ensureString(rawData.improvements || rawData.improvement)),
+        trainingPlan: cleanHalucinations(ensureString(rawData.trainingPlan || rawData.training_plan || rawData.plan))
       };
 
       // Validation: If major contents are empty, treat as generation failure to fall back to next model
