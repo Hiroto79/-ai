@@ -13,6 +13,9 @@ interface SidebarProps {
   onOpenSettings: () => void;
   hasApiKey: boolean;
   isProcessing: boolean;
+  isUploadingCsv?: boolean;
+  isUploadingPdf?: boolean;
+  uploadProgress?: number | null;
   onDeleteDocument: (id: string, e: React.MouseEvent) => void;
 }
 
@@ -25,6 +28,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   hasApiKey,
   isProcessing,
+  isUploadingCsv = false,
+  isUploadingPdf = false,
+  uploadProgress = null,
   onDeleteDocument,
 }) => {
   const [isPaperDragOver, setIsPaperDragOver] = useState(false);
@@ -162,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onDragOver={handlePaperDragOver}
           onDragLeave={handlePaperDragLeave}
           onDrop={handlePaperDrop}
-          onClick={isProcessing ? undefined : triggerPaperSelect}
+          onClick={isUploadingPdf ? undefined : triggerPaperSelect}
         >
           <input 
             type="file" 
@@ -171,12 +177,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             accept=".pdf,.txt,.md"
             multiple
             onChange={handlePaperFileChange}
-            disabled={isProcessing}
+            disabled={isUploadingPdf}
           />
-          {isProcessing ? (
+          {isUploadingPdf ? (
             <div className="upload-loading-state">
               <div className="spinner"></div>
-              <p>資料を読み込み・解析中...</p>
+              <p>資料を読み込み・解析中...{uploadProgress !== null ? ` (${uploadProgress}%)` : ''}</p>
             </div>
           ) : (
             <>
@@ -190,11 +196,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* 2. CSV Rapsodo Data Upload Zone */}
         <div 
-          className={`upload-zone compact ${isCsvDragOver ? 'drag-active' : ''} ${isProcessing ? 'processing' : ''}`}
+          className={`upload-zone compact ${isCsvDragOver ? 'drag-active' : ''} ${isUploadingCsv ? 'processing' : ''}`}
           onDragOver={handleCsvDragOver}
           onDragLeave={handleCsvDragLeave}
           onDrop={handleCsvDrop}
-          onClick={isProcessing ? undefined : triggerCsvSelect}
+          onClick={isUploadingCsv ? undefined : triggerCsvSelect}
         >
           <input 
             type="file" 
@@ -203,12 +209,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             accept=".csv"
             multiple
             onChange={handleCsvFileChange}
-            disabled={isProcessing}
+            disabled={isUploadingCsv}
           />
-          {isProcessing ? (
+          {isUploadingCsv ? (
             <div className="upload-loading-state">
               <div className="spinner"></div>
-              <p>測定データを読み込み中...</p>
+              <p>測定データを読み込み中...{uploadProgress !== null ? ` (${uploadProgress}%)` : ''}</p>
             </div>
           ) : (
             <>

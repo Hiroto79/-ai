@@ -7,9 +7,10 @@ pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.vers
  * Extracts plain text from a PDF file using pdf.js on the client-side.
  * 
  * @param file The PDF file uploaded by the user
+ * @param onProgress Callback to notify progress percentage (0 - 100)
  * @returns Promise resolving to the extracted text
  */
-export async function extractTextFromPdf(file: File): Promise<string> {
+export async function extractTextFromPdf(file: File, onProgress?: (progress: number) => void): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   
   // Load the PDF document
@@ -17,9 +18,10 @@ export async function extractTextFromPdf(file: File): Promise<string> {
   const pdf = await loadingTask.promise;
   
   let fullText = '';
+  const totalPages = pdf.numPages;
   
   // Extract text page by page
-  for (let i = 1; i <= pdf.numPages; i++) {
+  for (let i = 1; i <= totalPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
     
@@ -28,6 +30,10 @@ export async function extractTextFromPdf(file: File): Promise<string> {
       .join(' ');
       
     fullText += `[ページ ${i}]\n${pageText}\n\n`;
+
+    if (onProgress && totalPages > 0) {
+      onProgress(Math.round((i / totalPages) * 100));
+    }
   }
   
   return fullText.trim();

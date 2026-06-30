@@ -126,6 +126,9 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isResponding, setIsResponding] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [isUploadingCsv, setIsUploadingCsv] = useState(false);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
 
   // Load data from Supabase if configured, otherwise fall back to local mock data
   useEffect(() => {
@@ -454,20 +457,35 @@ export default function App() {
 
   // Upload multiple files handler
   const handleUploadFiles = async (files: FileList | File[]) => {
+    const hasCsv = Array.from(files).some(f => f.name.toLowerCase().endsWith('.csv'));
+    const hasPdf = Array.from(files).some(f => !f.name.toLowerCase().endsWith('.csv'));
+    
     setIsProcessing(true);
+    setUploadProgress(0);
+    if (hasCsv) setIsUploadingCsv(true);
+    if (hasPdf) setIsUploadingPdf(true);
+
     const loadedDocs: DocumentItem[] = [];
     const newHittingPlayers: Record<string, HittingPlayer[]> = {};
     const newPitchingPlayers: Record<string, PitchingPlayer[]> = {};
     const newSelectedPlayerNames: Record<string, string> = {};
 
     try {
-      for (let i = 0; i < files.length; i++) {
+      const totalFiles = files.length;
+      for (let i = 0; i < totalFiles; i++) {
         const file = files[i];
         let text = '';
         let csvRaw = '';
         
+        // Base progress for starting this file
+        const progressBase = Math.round((i / totalFiles) * 100);
+        setUploadProgress(progressBase);
+        
         if (file.name.endsWith('.pdf')) {
-          text = await extractTextFromPdf(file);
+          text = await extractTextFromPdf(file, (pdfPercent) => {
+            const overallPercent = Math.round(((i + (pdfPercent / 100)) / totalFiles) * 100);
+            setUploadProgress(Math.min(99, overallPercent));
+          });
         } else if (file.name.endsWith('.csv')) {
           csvRaw = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -645,8 +663,13 @@ export default function App() {
         setActiveView('files');
       }
 
-      // Trigger analysis sequentially for all imported files
-      for (const doc of loadedDocs) {
+      // Trigger analysis sequentially ONLY for imported CSV files
+      const csvDocs = loadedDocs.filter(doc => doc.fileName.toLowerCase().endsWith('.csv'));
+      const totalCsvs = csvDocs.length;
+      for (let cIdx = 0; cIdx < totalCsvs; cIdx++) {
+        const doc = csvDocs[cIdx];
+        const analysisPercent = Math.round((cIdx / totalCsvs) * 100);
+        setUploadProgress(analysisPercent);
         await runAnalysis(doc.id, doc.content);
       }
 
@@ -654,6 +677,9 @@ export default function App() {
       alert(error.message || "ファイルの処理中にエラーが発生しました。");
     } finally {
       setIsProcessing(false);
+      setIsUploadingCsv(false);
+      setIsUploadingPdf(false);
+      setUploadProgress(null);
     }
   };
 
@@ -1323,6 +1349,9 @@ export default function App() {
                     onOpenSettings={() => setIsSettingsOpen(true)}
                     hasApiKey={!!apiKey}
                     isProcessing={isProcessing}
+                    isUploadingCsv={isUploadingCsv}
+                    isUploadingPdf={isUploadingPdf}
+                    uploadProgress={uploadProgress}
                     onDeleteDocument={handleDeleteDocument}
                   />
                 </div>
