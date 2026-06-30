@@ -386,16 +386,20 @@ export function parseHittingPlayers(csvText: string, teamName?: string): Hitting
 
     const handThrowRow = getAvgForType('手投げ', { ev: 1.0, la: 1.0, bat: 1.0, attack: 1.0, adjust: 1.0, dist: 1.0 });
     const teeRow = getAvgForType('置きT', { ev: 0.95, la: 0.9, bat: 0.95, attack: 0.95, adjust: 1.2, dist: 0.9 });
-    const prevRow = getAvgForType('置きT', { ev: 0.98, la: 0.92, bat: 0.98, attack: 0.98, adjust: 1.0, dist: 0.92 });
 
     const rows: HittingStatsRow[] = [
       { type: '手投げ', ...handThrowRow },
-      { type: '置きT', ...teeRow },
-      { type: '前回（置きT）', ...prevRow }
+      { type: '置きT', ...teeRow }
     ];
 
-    // Generate hitting courses based on aggregate stats (replicating the 4-box layout)
-    const courses: CourseData = {
+    // Check if the CSV actually contains course / strike zone data columns to prevent hallucinations on course analysis
+    const hasCourseColumns = csvText.toLowerCase().includes('zone') || 
+                             csvText.toLowerCase().includes('strikezone') || 
+                             csvText.includes('コース') || 
+                             csvText.includes('ゾーン');
+
+    // Only generate courses if actual course data is detected in CSV to prevent hallucinating inner/outer locations
+    const courses: CourseData | undefined = hasCourseColumns ? {
       outHigh: {
         distance: round(avgDist * 0.85, 1),
         exitVelocity: round(avgEv * 0.9, 1),
@@ -424,7 +428,7 @@ export function parseHittingPlayers(csvText: string, teamName?: string): Hitting
         batSpeed: round(avgBatSpeed * 0.98, 1),
         power: round((avgEv * 0.85 * avgBatSpeed * 0.98) / 3000, 1)
       }
-    };
+    } : undefined;
 
     const rawHits = [];
     if (playerTypes) {
@@ -836,7 +840,20 @@ function normalizePitchType(rawType: string): string {
  * 投球選手の集計データから要約用のMarkdownテキストを生成します。
  */
 export function generatePitchingSummaryMarkdown(players: PitchingPlayer[]): string {
-  let md = "【Rapsodo 投球データ測定サマリー】\n\n";
+  let md = "【Rapsodo 投球データ測定サマリー】\n";
+
+  let hasPrevData = false;
+  for (const player of players) {
+    if (player.previousStraight && (player.previousStraight.speed > 0 || player.previousStraight.spin > 0)) {
+      hasPrevData = true;
+    }
+  }
+
+  if (!hasPrevData) {
+    md += "※【重要】前回（過去）の測定データは存在しません。今回の測定ファクト値のみから現状の技術的特徴を評価してください。勝手に過去と比較して「向上した」などの妄想をでっち上げないでください。\n";
+  }
+  md += "\n";
+
   for (const player of players) {
     md += `### 選手名: ${player.name} (${player.handedness === 'R' ? '右投げ' : '左投げ'})\n`;
     md += `#### クイックタイム (秒): 最速 ${player.quickTimes.fastest}s, 平均 ${player.quickTimes.average}s\n`;
@@ -858,7 +875,31 @@ export function generatePitchingSummaryMarkdown(players: PitchingPlayer[]): stri
  * 打撃選手の集計データから要約用のMarkdownテキストを生成します。
  */
 export function generateHittingSummaryMarkdown(players: HittingPlayer[]): string {
-  let md = "【Rapsodo 打撃データ測定サマリー】\n\n";
+  let md = "【Rapsodo 打撃データ測定サマリー】\n";
+  
+  // Detect if all rows belong to hand-throw/tee batting
+  let isHandThrowOnly = true;
+  let hasPrevData = false;
+  for (const player of players) {
+    for (const row of player.rows) {
+      const typeLower = row.type.toLowerCase();
+      if (!typeLower.includes('手投げ') && !typeLower.includes('置きt') && !typeLower.includes('トス') && !typeLower.includes('tee')) {
+        isHandThrowOnly = false;
+      }
+      if (typeLower.includes('前回') || typeLower.includes('過去')) {
+        hasPrevData = true;
+      }
+    }
+  }
+
+  if (isHandThrowOnly) {
+    md += "※【重要】この測定セッションは実戦（投手対打者）やフリー打撃ではなく、『手投げ（トスバッティング/置きT）』の形式で行われています。投球のスピードやボールの軌道、変化、また対決状況のインコース・アウトコースなどの配球コース情報は一切含まれません。データに存在しない対戦コース別の推測は絶対に行わないでください。\n";
+  }
+  if (!hasPrevData) {
+    md += "※【重要】前回（過去）の測定データは存在しません。今回の測定ファクト値のみから現状の技術的特徴を評価してください。勝手に過去と比較して「向上した」などの妄想をでっち上げないでください。\n";
+  }
+  md += "\n";
+
   for (const player of players) {
     md += `### 選手名: ${player.name}\n`;
     md += `#### 測定データ一覧:\n`;
