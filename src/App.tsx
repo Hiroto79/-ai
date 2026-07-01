@@ -23,7 +23,7 @@ import {
   generateHittingSummaryMarkdown
 } from './services/csvParser';
 import type { HittingPlayer, PitchingPlayer } from './services/csvParser';
-import { analyzeDocument, chatWithCoach } from './services/gemini';
+import { analyzeDocument, chatWithCoach, getBestSupportedModel, createGeminiCache, extendGeminiCacheTTL } from './services/gemini';
 import type { ChatMessage } from './services/gemini';
 import {
   isSupabaseConfigured,
@@ -101,6 +101,34 @@ export default function App() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // Pinned/Memorized reference documents for context caching
+  const [pinnedDocIds, setPinnedDocIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('gemini_analysis_pinned_doc_ids');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [activeCache, setActiveCache] = useState<{
+    name: string;
+    expires: string;
+    model: string;
+    textHash: string;
+  } | null>(null);
+
+  const [savedTokensCount, setSavedTokensCount] = useState<number>(() => {
+    try {
+      const stored = localStorage.getItem('gemini_analysis_saved_tokens_count');
+      return stored ? parseInt(stored, 10) : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const [isFreeTierRestriction, setIsFreeTierRestriction] = useState<boolean>(false);
+
   // App States
   const [documents, setDocuments] = useState<DocumentItem[]>(MOCK_DOCUMENTS);
   const [activeDocId, setActiveDocId] = useState<string | null>('doc-pitching');
@@ -116,6 +144,99 @@ export default function App() {
 
   // Navigation View State
   const [activeView, setActiveView] = useState<'individual' | 'team' | 'coach' | 'files'>('individual');
+
+  const getCombinedPinnedContent = (): string => {
+    const pinnedDocs = documents.filter(doc => pinnedDocIds.includes(doc.id));
+    if (pinnedDocs.length === 0) return '';
+    return pinnedDocs
+      .map(doc => `=== 記憶された参照資料: ${doc.title} ===\n${doc.content}\n====================================`)
+      .join('\n\n');
+  };
+
+  const getPinnedTokensCount = (): number => {
+    const pinnedDocs = documents.filter(doc => pinnedDocIds.includes(doc.id));
+    const combinedLength = pinnedDocs.reduce((acc, doc) => acc + doc.content.length, 0);
+    return Math.round(combinedLength * 1.5);
+  };
+
+  const getOrUpdateContextCache = async (apiKeyToUse: string, currentModel: string): Promise<string | null> => {
+    const combinedContent = getCombinedPinnedContent();
+    if (!combinedContent) return null;
+
+    // Estimate token count. 1 character ≈ 1.5 tokens in Japanese.
+    // Explicit Context Caching requires minimum 32,768 tokens for Gemini 1.5.
+    const estimatedTokens = combinedContent.length * 1.5;
+    if (estimatedTokens < 32768) {
+      console.log(`Pinned content is small (~${Math.round(estimatedTokens)} tokens). Caching skipped, using standard prompt injection.`);
+      return null;
+    }
+
+    // Determine target caching model
+    let targetModel = 'gemini-1.5-flash-001';
+    if (currentModel.includes('pro')) {
+      targetModel = 'gemini-1.5-pro-001';
+    }
+
+    // Generate a simple hash of the combined text to detect changes
+    const contentHash = combinedContent.length + '_' + combinedContent.substring(0, 100) + '_' + combinedContent.substring(combinedContent.length - 100);
+
+    // If cache is active and has matching hash/model/expiration, reuse it!
+    if (activeCache && 
+        activeCache.textHash === contentHash && 
+        activeCache.model === 'models/' + targetModel && 
+        new Date(activeCache.expires).getTime() > Date.now() + 60000 // has at least 1 min remaining
+    ) {
+      console.log("Reusing active context cache:", activeCache.name);
+      
+      // Fire-and-forget: Extend the cache TTL on Gemini server so it stays alive, preventing expiration
+      extendGeminiCacheTTL(apiKeyToUse, activeCache.name).then(() => {
+        // Update local expires timestamp to prevent redundant calls
+        setActiveCache(prev => prev ? {
+          ...prev,
+          expires: new Date(Date.now() + 3600000).toISOString() // reset to +1 hour locally
+        } : null);
+      }).catch(err => console.warn("Failed to extend TTL:", err));
+
+      return activeCache.name;
+    }
+
+    console.log("Creating new Gemini context cache for pinned reference documents...");
+    try {
+      const cacheInfo = await createGeminiCache(apiKeyToUse, combinedContent, targetModel);
+      
+      setActiveCache({
+        name: cacheInfo.name,
+        expires: cacheInfo.expires,
+        model: cacheInfo.model,
+        textHash: contentHash
+      });
+      setIsFreeTierRestriction(false);
+      
+      console.log("Context cache created successfully:", cacheInfo.name, "expires at:", cacheInfo.expires);
+      return cacheInfo.name;
+    } catch (err) {
+      console.warn("Failed to create context cache, will fall back to direct context prompt injection:", err);
+      setIsFreeTierRestriction(true);
+      return null;
+    }
+  };
+
+  const handleTogglePinDocument = (docId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // prevent opening/selecting the doc
+    setPinnedDocIds(prev => {
+      const next = prev.includes(docId) 
+        ? prev.filter(id => id !== docId) 
+        : [...prev, docId];
+      localStorage.setItem('gemini_analysis_pinned_doc_ids', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleUnpinAllDocuments = () => {
+    setPinnedDocIds([]);
+    localStorage.removeItem('gemini_analysis_pinned_doc_ids');
+    setActiveCache(null); // invalidate caching context locally too
+  };
 
   // Chat Histories key format: `${docId}-${personaId}`
   const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
@@ -437,11 +558,46 @@ export default function App() {
             saveDocument(doc).catch(err => console.error("Error updating old document content with summary:", err));
           }
         }
+        // If there is an active comparison document for this docId, merge it for comparative AI analysis
+        const compDocId = compareDocIds[docId];
+        if (compDocId) {
+          const compareDoc = documents.find(d => d.id === compDocId);
+          if (compareDoc) {
+            finalContent = `【最新の測定データ（今回のセッション）】\n${finalContent}\n\n【前回の測定データ（比較対象）】\n${compareDoc.content}`;
+          }
+        }
       }
 
       if (apiKey) {
-        // Run real analysis using Gemini API with hand-throw restriction flag
-        const analyzed = await analyzeDocument(finalContent, apiKey, isHandThrowOnly);
+        // Fetch or create context cache for pinned reference documents
+        const bestModel = await getBestSupportedModel(apiKey).catch(() => 'gemini-1.5-flash');
+        const cacheName = await getOrUpdateContextCache(apiKey, bestModel);
+
+        let finalContentWithFallback = finalContent;
+        if (!cacheName) {
+          // Fallback: If cache was not created (e.g. content too small, or error),
+          // we prepend reference papers directly to the analysis prompt
+          const combinedPinned = getCombinedPinnedContent();
+          if (combinedPinned) {
+            finalContentWithFallback = `${combinedPinned}\n\n上記バイオメカニクス資料・論文を踏まえた上で、以下のデータを解析してください。\n\n${finalContent}`;
+          }
+        }
+
+        // Run real analysis using Gemini API with hand-throw restriction flag and context cache
+        const analyzed = await analyzeDocument(finalContentWithFallback, apiKey, isHandThrowOnly, cacheName || undefined);
+
+        // If cache was used, increment the saved tokens counter
+        if (cacheName) {
+          const saved = getPinnedTokensCount();
+          if (saved > 0) {
+            setSavedTokensCount(prev => {
+              const next = prev + saved;
+              localStorage.setItem('gemini_analysis_saved_tokens_count', next.toString());
+              return next;
+            });
+          }
+        }
+
         setAnalysisSheets(prev => ({
           ...prev,
           [docId]: analyzed
@@ -719,12 +875,19 @@ export default function App() {
 
   // Add text directly
   const handleAddText = async (title: string, text: string) => {
+    // Normalize consecutive spaces and carriage returns to save tokens
+    const normalizedText = text
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\r?\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
     const newDoc: DocumentItem = {
       id: `doc-${Date.now()}`,
       title,
       fileName: 'direct_input.txt',
       fileType: 'text',
-      content: text,
+      content: normalizedText,
       uploadedAt: new Date().toLocaleString('ja-JP', { hour12: false }).substring(0, 16)
     };
 
@@ -737,7 +900,7 @@ export default function App() {
     setActiveView('individual');
 
     // Auto trigger analysis
-    await runAnalysis(newDoc.id, text);
+    await runAnalysis(newDoc.id, normalizedText);
   };
 
   // Delete document handler (with Supabase sync)
@@ -757,6 +920,11 @@ export default function App() {
 
       // Remove from states
       setDocuments(prev => prev.filter(d => d.id !== docId));
+      setPinnedDocIds(prev => {
+        const next = prev.filter(id => id !== docId);
+        localStorage.setItem('gemini_analysis_pinned_doc_ids', JSON.stringify(next));
+        return next;
+      });
       
       setAnalysisSheets(prev => {
         const next = { ...prev };
@@ -807,14 +975,40 @@ export default function App() {
 
     try {
       if (apiKey) {
+        // Fetch or create context cache for pinned reference documents
+        const bestModel = await getBestSupportedModel(apiKey).catch(() => 'gemini-1.5-flash');
+        const cacheName = await getOrUpdateContextCache(apiKey, bestModel);
+
+        let finalDocContent = activeDocument.content;
+        if (!cacheName) {
+          // Fallback: append reference papers directly as background context to docContent
+          const combinedPinned = getCombinedPinnedContent();
+          if (combinedPinned) {
+            finalDocContent = `${combinedPinned}\n\n=== 選手/測定データ ===\n${activeDocument.content}`;
+          }
+        }
+
         // Real Gemini coach chat
         const responseText = await chatWithCoach(
-          activeDocument.content,
+          finalDocContent,
           currentMessages,
           messageText,
           activePersona.systemPrompt,
-          apiKey
+          apiKey,
+          cacheName || undefined
         );
+
+        // If cache was used, increment the saved tokens counter
+        if (cacheName) {
+          const saved = getPinnedTokensCount();
+          if (saved > 0) {
+            setSavedTokensCount(prev => {
+              const next = prev + saved;
+              localStorage.setItem('gemini_analysis_saved_tokens_count', next.toString());
+              return next;
+            });
+          }
+        }
         
         const aiMsg: ChatMessage = { role: 'model', content: responseText };
         setChatHistories(prev => ({
@@ -1346,6 +1540,13 @@ let reply = '';
                     isUploadingPdf={isUploadingPdf}
                     uploadProgress={uploadProgress}
                     onDeleteDocument={handleDeleteDocument}
+                    pinnedDocIds={pinnedDocIds}
+                    onTogglePinDocument={handleTogglePinDocument}
+                    pinnedTokensCount={getPinnedTokensCount()}
+                    savedTokensCount={savedTokensCount}
+                    isCacheActive={!!activeCache && pinnedDocIds.length > 0 && new Date(activeCache.expires).getTime() > Date.now()}
+                    isFreeTierRestriction={isFreeTierRestriction}
+                    onUnpinAllDocuments={handleUnpinAllDocuments}
                   />
                 </div>
               </div>

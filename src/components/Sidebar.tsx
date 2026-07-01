@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { 
-  FileText, Plus, Settings, BookOpen, AlertCircle, FileUp, Trash2
+  FileText, Plus, Settings, BookOpen, AlertCircle, FileUp, Trash2, Pin
 } from 'lucide-react';
 import type { DocumentItem } from '../mockData';
 
@@ -17,6 +17,13 @@ interface SidebarProps {
   isUploadingPdf?: boolean;
   uploadProgress?: number | null;
   onDeleteDocument: (id: string, e: React.MouseEvent) => void;
+  pinnedDocIds?: string[];
+  onTogglePinDocument?: (id: string, e: React.MouseEvent) => void;
+  pinnedTokensCount?: number;
+  savedTokensCount?: number;
+  isCacheActive?: boolean;
+  isFreeTierRestriction?: boolean;
+  onUnpinAllDocuments?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -32,6 +39,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isUploadingPdf = false,
   uploadProgress = null,
   onDeleteDocument,
+  pinnedDocIds = [],
+  onTogglePinDocument,
+  pinnedTokensCount = 0,
+  savedTokensCount = 0,
+  isCacheActive = false,
+  isFreeTierRestriction = false,
+  onUnpinAllDocuments,
 }) => {
   const [isPaperDragOver, setIsPaperDragOver] = useState(false);
   const [isCsvDragOver, setIsCsvDragOver] = useState(false);
@@ -269,6 +283,100 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </form>
       )}
 
+      {/* AI Memory & Context Caching Dashboard */}
+      {hasApiKey && (
+        <div className="ai-memory-dashboard glass-panel" style={{
+          margin: '12px 0',
+          padding: '12px 14px',
+          borderRadius: '10px',
+          border: '1px solid rgba(129, 140, 248, 0.25)',
+          background: 'rgba(23, 28, 41, 0.45)',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '16px' }}>🧠</span>
+            <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#c7d2fe', letterSpacing: '0.5px' }}>
+              AI記憶ダッシュボード
+            </h4>
+            {isCacheActive && (
+              <span className="pulse-dot" style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#34d399',
+                boxShadow: '0 0 8px #10b981',
+                marginLeft: 'auto'
+              }} title="Gemini Context Cache 動作中" />
+            )}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11px', color: '#94a3b8' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>キャッシュ状態:</span>
+              <span style={{ color: isCacheActive ? '#34d399' : '#94a3b8', fontWeight: 500 }}>
+                {isCacheActive ? '有効 (記憶中)' : '未記憶 (準備完了)'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>記憶サイズ:</span>
+              <span style={{ color: '#c7d2fe', fontWeight: 500 }}>
+                {pinnedTokensCount ? `~${pinnedTokensCount.toLocaleString()} トークン` : '0 トークン'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px', marginTop: '4px' }}>
+              <span>累計節約トークン:</span>
+              <span style={{ color: '#a78bfa', fontWeight: 600 }}>
+                {savedTokensCount ? `${savedTokensCount.toLocaleString()} トークン` : '0 トークン'}
+              </span>
+            </div>
+            {savedTokensCount > 0 && (
+              <div style={{ color: '#818cf8', fontSize: '10px', textAlign: 'right', marginTop: '2px', fontStyle: 'italic' }}>
+                🎉 コスト削減率 約75% 適用中
+              </div>
+            )}
+            {isFreeTierRestriction && (
+              <div style={{
+                color: '#f87171',
+                fontSize: '10.5px',
+                marginTop: '6px',
+                borderTop: '1px dashed rgba(248, 113, 113, 0.25)',
+                paddingTop: '6px',
+                lineHeight: '1.4'
+              }}>
+                <div>⚠️ 無料版APIキーのため、キャッシュ登録が制限されています。クォータ制限エラー（429）を回避するため、PDFのピン留めマーク（🧠）を1〜2個に減らすことを強くお勧めします。</div>
+                {onUnpinAllDocuments && pinnedDocIds.length > 0 && (
+                  <button
+                    onClick={onUnpinAllDocuments}
+                    style={{
+                      marginTop: '8px',
+                      width: '100%',
+                      padding: '6px 10px',
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      border: '1px solid rgba(239, 68, 68, 0.4)',
+                      borderRadius: '6px',
+                      color: '#fca5a5',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.25)';
+                      e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.6)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+                      e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                    }}
+                  >
+                    🧠 記憶中の資料を一括解除する
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Document List */}
       <div className="document-list-container">
         <h3>
@@ -278,56 +386,110 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <p className="empty-message">資料がありません。上のエリアからアップロードするか、テキストを入力してください。</p>
         ) : (
           <ul className="document-list">
-            {documents.map((doc) => (
-              <li 
-                key={doc.id}
-                className={`document-item ${activeId === doc.id ? 'active' : ''}`}
-                onClick={() => onSelectDocument(doc.id)}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-                  <FileText size={16} className="doc-icon" style={{ flexShrink: 0 }} />
-                  <div className="doc-info" style={{ minWidth: 0 }}>
-                    <span className="doc-title" title={doc.title} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {doc.title}
-                    </span>
-                    <span className="doc-meta">{doc.uploadedAt} • {doc.fileType.toUpperCase()}</span>
-                  </div>
-                </div>
-                <button 
-                  className="delete-doc-btn"
-                  onClick={(e) => onDeleteDocument(doc.id, e)}
-                  title="この資料を削除"
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted, #8b9bb4)',
-                    cursor: 'pointer',
-                    padding: '4px',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginLeft: '8px',
-                    transition: 'all 0.2s',
-                    flexShrink: 0,
-                    opacity: 0.6
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = '#ef4444';
-                    e.currentTarget.style.opacity = '1';
-                    e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--text-muted, #8b9bb4)';
-                    e.currentTarget.style.opacity = '0.6';
-                    e.currentTarget.style.backgroundColor = 'transparent';
+            {documents.map((doc) => {
+              const isCsv = doc.fileName.toLowerCase().endsWith('.csv') || doc.id === 'doc-pitching' || doc.id === 'doc-batting';
+              const isPinned = pinnedDocIds.includes(doc.id);
+              return (
+                <li 
+                  key={doc.id}
+                  className={`document-item ${activeId === doc.id ? 'active' : ''} ${isPinned ? 'pinned' : ''}`}
+                  onClick={() => onSelectDocument(doc.id)}
+                  style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    position: 'relative',
+                    borderLeft: isPinned ? '3px solid #818cf8' : undefined,
+                    backgroundColor: isPinned ? 'rgba(129, 140, 248, 0.05)' : undefined
                   }}
                 >
-                  <Trash2 size={14} />
-                </button>
-              </li>
-            ))}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                    <FileText size={16} className="doc-icon" style={{ flexShrink: 0, color: isPinned ? '#818cf8' : undefined }} />
+                    <div className="doc-info" style={{ minWidth: 0 }}>
+                      <span className="doc-title" title={doc.title} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isPinned ? '500' : undefined }}>
+                        {doc.title}
+                      </span>
+                      <span className="doc-meta">
+                        {isPinned ? '🧠 AI記憶中 • ' : ''}
+                        {doc.uploadedAt} • {doc.fileType.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {!isCsv && onTogglePinDocument && (
+                      <button
+                        className={`pin-doc-btn ${isPinned ? 'pinned' : ''}`}
+                        onClick={(e) => onTogglePinDocument(doc.id, e)}
+                        title={isPinned ? "背景知識・参照資料から外す" : "AIの背景知識・参照資料として記憶させる"}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: isPinned ? '#818cf8' : 'var(--text-muted, #8b9bb4)',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          borderRadius: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s',
+                          flexShrink: 0,
+                          opacity: isPinned ? 1 : 0.6
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isPinned) {
+                            e.currentTarget.style.color = '#818cf8';
+                            e.currentTarget.style.opacity = '1';
+                            e.currentTarget.style.backgroundColor = 'rgba(129, 140, 248, 0.1)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isPinned) {
+                            e.currentTarget.style.color = 'var(--text-muted, #8b9bb4)';
+                            e.currentTarget.style.opacity = '0.6';
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
+                      >
+                        <Pin size={14} style={{ transform: isPinned ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s' }} />
+                      </button>
+                    )}
+
+                    <button 
+                      className="delete-doc-btn"
+                      onClick={(e) => onDeleteDocument(doc.id, e)}
+                      title="この資料を削除"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted, #8b9bb4)',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        borderRadius: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s',
+                        flexShrink: 0,
+                        opacity: 0.6
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = '#ef4444';
+                        e.currentTarget.style.opacity = '1';
+                        e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = 'var(--text-muted, #8b9bb4)';
+                        e.currentTarget.style.opacity = '0.6';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
