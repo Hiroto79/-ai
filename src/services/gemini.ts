@@ -9,7 +9,7 @@ let lastUsedApiKey: string | null = null;
  * Dynamically queries the API on first load and caches the result for subsequent access.
  */
 export async function getSupportedModelsOrdered(apiKey: string): Promise<string[]> {
-  const defaultList = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  const defaultList = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
   
   if (cachedModels && lastUsedApiKey === apiKey) {
     return cachedModels;
@@ -42,8 +42,8 @@ export async function getSupportedModelsOrdered(apiKey: string): Promise<string[
 
       // Only allow stable text generation models to avoid preview/experimental errors
       const allowedModels = [
-        'gemini-2.0-flash',
         'gemini-1.5-flash',
+        'gemini-2.0-flash',
         'gemini-1.5-flash-8b',
         'gemini-1.5-pro'
       ];
